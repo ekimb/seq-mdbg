@@ -1,0 +1,59 @@
+from bio import *
+from sys import *
+from kminmer import KMinmer
+from internal import *
+import math
+L = Kmer[12]
+K = List[32]
+class Read:
+    k: int
+    l: int
+    id: str
+    minimizers: List[L]
+    minimizers_pos: List[int]
+    transformed: List[int]
+    seq: str
+    corrected: bool
+
+    def __init__(self, k: int, l: int, seq: str):
+        self.minimizers = List[L]()
+        self.minimizers_pos = List[int]()
+        self.transformed = List[int]()
+        self.k = k
+        self.l = l
+        self.seq = seq
+
+    def _idx_check(self, idx: int, msg: str):
+        if idx >= self.len or idx < 0:
+            raise IndexError(msg)
+    
+    def __len__(self):
+        return len(self.transformed)
+    
+    def __getitem__(self, idx: int):
+        if idx < 0:
+            idx += self.__len__()
+        self._idx_check(idx, "List index out of range.")
+        return (self.minimizers[idx], self.minimizers_pos[idx], self.transformed[idx])
+    
+    def fill(self, pos: int, lmer: L):
+        density = 0.002
+        hash_bound = (density * (2**31 - 1))
+        lmer = canonical(lmer)
+        h = hash(lmer)
+        self.minimizers.append(lmer)
+        self.minimizers_pos.append(pos)
+        if h <= hash_bound: self.transformed.append(h)
+    
+    def kmers(self):
+        kmers = List[KMinmer]()
+        k = self.k
+        for i in range(len(self.transformed-k+1)):
+            kminmer = KMinmer(self.transformed[i:i+k])
+            kminmer.normalize()
+            kminmer.fill(i, self.minimizers_pos, self.seq)
+            kmers.append(kminmer)
+        return kmers
+
+
+    
