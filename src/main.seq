@@ -1,26 +1,42 @@
 from bio import *
 from sys import argv
 from time import timing
+from kminmer import KMinmer
 from read import Read
+from gfa_output import Graph
 import gzip
 L = Kmer[12]
-K = List[32]
+
 def extract(record, k, l):
     read = Read(k, l, record.seq)
-    l = 12
     record.seq.kmers_with_pos[L](step=1) |> read.fill
    # map((lambda x: read.fill(x[1], x[0], hash_bound, record.seq)),record.seq.kmers_with_pos[L](step=1))))
-    print("Selected ", read.len(), "lmers.")
     return read
 
 def read_to_kmers(record):
-    k = 32
+    k = 30
     l = 12
     read = extract(record, k, l)
-    return read.kmers()
+    kmers = read.kmers()
+   # for i in range(kmers.len()):
+      #  dbg_nodes[kmer.min] = (kmer.)
+    print("Selected",len(kmers), "k-min-mers.")
+    return kmers
 
-reader = FASTA(argv[1], validate=True, gzip=True, copy=True, fai=False)
+    
+
+reader = FASTA(argv[1], validate=True, gzip=False, copy=True, fai=False)
 k = 32
 l = 12
+path = "seq-example.gfa"
+graph = Graph()
 with timing('reading fasta'):
-   reader |> blocks(size=1000) ||> iter |> read_to_kmers |> print
+   reader |> blocks(size=1000) ||> iter |> read_to_kmers |> iter |> graph.add
+
+with timing('mdBG construction'):
+    print("Number of k-min-mers:", len(graph.index))
+    graph.filter(2)
+    print("Number of k-min-mers after abundance filter:", len(graph.index))
+    graph.write_nodes(path)
+
+

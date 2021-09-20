@@ -1,0 +1,94 @@
+from kminmer import KMinmer
+from python import format() -> str
+
+class Graph:
+    index: Dict[KMinmer, Tuple[int, int]]
+    node_count: int
+    fix_index: Dict[KMinmer, List[KMinmer]]
+
+    def __init__(self):
+        self.index = Dict()
+        self.node_count = 0
+        self.fix_index = Dict()
+    
+    def __contains__(self, kminmer):
+        return kminmer in self.index
+    
+    def add(self, kminmer):
+        prefix = KMinmer(kminmer.prefix(), kminmer.k, kminmer.l)
+        prefix.normalize()
+        suffix = KMinmer(kminmer.suffix(), kminmer.k, kminmer.l)
+        suffix.normalize()
+
+        if prefix in self.fix_index and kminmer not in self.fix_index[prefix]:
+            self.fix_index[prefix].append(kminmer)
+        else:
+            self.fix_index[prefix] = [kminmer]
+        if suffix in self.fix_index and kminmer not in self.fix_index[suffix]:
+            self.fix_index[suffix].append(kminmer)
+        else:
+            self.fix_index[suffix] = [kminmer] 
+        if kminmer in self.index:
+            index, abund = self.get(kminmer)
+            self.index[kminmer] = (index, abund + 1)
+        else:
+            self.index[kminmer] = (self.node_count, 1)
+            self.node_count += 1
+            
+
+
+    def get(self, kminmer):
+        return self.index[kminmer]
+    
+    def filter(self, min_abund):
+        self.index =  {k:v for (k,v) in self.index.items() if v[1] >= min_abund}
+
+    
+    def write_nodes(self, path):
+        num_edges = 0
+        f = open(path, "w")
+        f.write("H\tVN:Z:1\n")
+        for (n1, n1_entry) in self.index.items():
+            n1_rev = n1.reverse()
+            n1_prefix = KMinmer(n1.prefix(), n1.k, n1.l)
+            n1_prefix.normalize()
+            n1_suffix = KMinmer(n1.suffix(), n1.k, n1.l)
+            n1_suffix.normalize()
+            n1_abund = n1_entry[1]
+            n1_index = n1_entry[0]
+            n1_seqlen = len(n1.seq)
+            s_line = "S\t" + str(n1_index) + "\t*\tLN:i:" + str(n1_seqlen) + "\tKC:i:" + str(n1_abund) + "\n"
+            f.write(s_line)
+            for fix in [n1_prefix, n1_suffix]:
+                if fix in self.fix_index:
+                    edges = []
+                    cand_n2s = [kminmer for kminmer in self.fix_index[fix] if self.index[kminmer][0] != n1_index and self.index[kminmer][1] >= 2]
+                    for n2 in cand_n2s:
+                        n2_rev = n2.reverse() 
+                        if n1_suffix == KMinmer(n2.prefix(), n2.k, n2.l):
+                            edges.append((n2, "+", "+"))
+                        if n1_suffix == KMinmer(n2_rev.prefix(), n2.k, n2.l):
+                            edges.append((n2, "+", "-"))
+                        if KMinmer(n1_rev.suffix(), n1.k, n1.l) == KMinmer(n2.prefix(), n2.k, n2.l):
+                            edges.append((n2, "-", "+"))
+                        if KMinmer(n1_rev.suffix(), n1.k, n1.l) == KMinmer(n2_rev.prefix(), n2.k, n2.l):
+                            edges.append((n2, "-", "-"))
+                    
+                    for (n2, ori1, ori2) in edges:
+                        shift = n1.shift[1]
+                        n2_index = self.index[n2][0]
+                        n2_seqlen = len(n2.seq)
+                        if ori1 == "+":
+                            shift = n1.shift[0]
+                        print(n1_index, self.index[n2][0], shift)
+                        overlap_length = min((n1_seqlen - shift), (n2_seqlen - 1))
+                        l_line = "L\t" + str(n1_index) + "\t" + ori1 + "\t" + str(n2_index) + "\t" + ori2 + "\t" + str(overlap_length) + "M\n"
+                        f.write(l_line)
+                        num_edges += 1
+
+        print("Number of edges:", num_edges)
+
+    
+    
+
+
